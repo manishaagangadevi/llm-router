@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import TopNav from "@/components/TopNav";
-import { sendQuery, QueryResponse } from "@/lib/api";
+import { sendQuery, sendFeedback, QueryResponse } from "@/lib/api";
 
 type Priority = "balanced" | "cost" | "quality";
 
@@ -11,6 +11,7 @@ interface Message {
   text: string;
   meta?: QueryResponse;
   detailsOpen?: boolean;
+  feedbackGiven?: 1 | -1;
 }
 
 export default function ChatPage() {
@@ -41,6 +42,15 @@ export default function ChatPage() {
       setError("Couldn't reach the router backend. Is it running on localhost:8000?");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleFeedback(index: number, logId: number, value: 1 | -1) {
+    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, feedbackGiven: value } : m)));
+    try {
+      await sendFeedback(logId, value);
+    } catch {
+      // non-critical: the rating just isn't recorded
     }
   }
 
@@ -80,12 +90,32 @@ export default function ChatPage() {
 
                 {m.role === "assistant" && m.meta && (
                   <div className="mt-2">
-                    <button
-                      onClick={() => toggleDetails(i)}
-                      className="text-xs text-text-muted hover:text-teal transition-colors font-mono"
-                    >
-                      {m.detailsOpen ? "− hide routing details" : "+ routing details"}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => toggleDetails(i)}
+                        className="text-xs text-text-muted hover:text-teal transition-colors font-mono"
+                      >
+                        {m.detailsOpen ? "− hide routing details" : "+ routing details"}
+                      </button>
+                      <button
+                        onClick={() => handleFeedback(i, m.meta!.log_id, 1)}
+                        aria-label="Good response"
+                        className={`text-xs transition-colors ${
+                          m.feedbackGiven === 1 ? "text-teal" : "text-text-muted hover:text-teal"
+                        }`}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={() => handleFeedback(i, m.meta!.log_id, -1)}
+                        aria-label="Bad response"
+                        className={`text-xs transition-colors ${
+                          m.feedbackGiven === -1 ? "text-amber" : "text-text-muted hover:text-amber"
+                        }`}
+                      >
+                        ▼
+                      </button>
+                    </div>
 
                     {m.detailsOpen && (
                       <div className="mt-2 border border-border rounded-lg px-4 py-3 bg-bg-1 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-xs font-mono">

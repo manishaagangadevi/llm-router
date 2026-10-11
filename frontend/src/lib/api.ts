@@ -1,6 +1,7 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export interface QueryResponse {
+  log_id: number;
   answer: string;
   model_used: string;
   original_tokens: number;
@@ -41,6 +42,14 @@ export async function sendQuery(query: string, priority: string): Promise<QueryR
   });
   if (!res.ok) throw new Error(`Request failed: ${res.status}`);
   return res.json();
+}
+
+export async function sendFeedback(logId: number, feedback: 1 | -1): Promise<void> {
+  await fetch(`${API_BASE}/api/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ log_id: logId, feedback }),
+  });
 }
 
 export async function getLogs(): Promise<LogEntry[]> {
