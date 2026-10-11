@@ -1,14 +1,25 @@
 """
 Predictive routing classifier.
 
-v1 is rule-based (keyword + heuristic scoring) so the pipeline works without
-any training data. It's written so `predict()` is the only function the rest
-of the app depends on -- swap the internals for a trained sklearn/DistilBERT
-classifier later without touching the API layer.
+Uses a trained TF-IDF + logistic regression model (from train_classifier.py)
+when one exists, otherwise a rule-based router (keywords + length), so the
+pipeline works from day one with zero training data. `predict()` is the only
+function the rest of the app depends on.
 """
 import re
+from pathlib import Path
+
+import joblib
 
 from app.config import settings
+
+_MODEL_PATH = Path(__file__).parent / "trained_router.joblib"
+_trained = None
+if _MODEL_PATH.exists():
+    try:
+        _trained = joblib.load(_MODEL_PATH)
+    except Exception:  # corrupt/incompatible file -> fall back to rules
+        _trained = None
 
 CODE_HINTS = re.compile(r"\b(code|function|bug|error|python|javascript|api|debug|script|algorithm|sql)\b", re.I)
 CREATIVE_HINTS = re.compile(r"\b(story|poem|write a|creative|imagine|brainstorm|slogan|essay)\b", re.I)
@@ -31,6 +42,14 @@ def fallbacks_for(model_key: str) -> list[str]:
 def predict(query: str, priority: str = "balanced") -> tuple[str, str, dict]:
     """Returns (model_key, reason, model_info)."""
     length = len(query.split())
+
+    # an explicit cost/quality choice from the user always beats the learned router
+    if priority == "balanced" and _trained is not None:
+        name_to_key = {info["name"]: key for key, info in MODELS.items()}
+        predicted = _trained.predict([query])[0]
+        if predicted in name_to_key:  # skip if that model is no longer a configured tier
+            key = name_to_key[predicted]
+            return key, "predicted by trained classifier", MODELS[key]
 
     if priority == "cost":
         key, reason = "fast_cheap", "user prioritized cost"
