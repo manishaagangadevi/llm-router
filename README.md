@@ -42,7 +42,7 @@ frontend/   Next.js app - chat interface + analytics dashboard
 ```bash
 cd backend
 pip install -r requirements.txt
-cp .env.example .env   # add your ANTHROPIC_API_KEY to get real model responses
+cp .env.example .env   # then add your free keys (see below)
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -53,14 +53,33 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`. Without API keys configured, the backend runs
-in demo mode and returns placeholder responses so the full pipeline
-(compression → routing → logging → dashboard) can be tested end to end.
+Open `http://localhost:3000`.
+
+### Free API keys
+
+| Provider | Where | Used for |
+|----------|-------|----------|
+| Gemini   | aistudio.google.com | balanced tier |
+| Groq     | console.groq.com    | fast + premium tiers (Llama models) |
+
+Both have free tiers (check their pages for current limits). OpenAI and
+Anthropic adapters are also included and activate if you add keys. A provider
+with no key runs in demo mode and returns placeholder text, so the whole
+pipeline (compression → routing → logging → dashboard) works without any keys.
+Which model serves each tier is set in `.env` (`FAST_MODEL`, `BALANCED_MODEL`,
+`PREMIUM_MODEL`), so a retired model is a config change, not a code change.
+
+### Training the router
+
+Rate answers with the ▲ / ▼ buttons in the chat. Once there are at least 15
+thumbs-up examples for two or more models, run `python train_classifier.py`
+in `backend/` and restart the server. Until then routing is rule-based.
 
 ## Status / roadmap
 
-- [x] Compression, rule-based routing, single-provider (Claude) calls, logging, dashboard
-- [ ] OpenAI + Gemini adapters
-- [ ] Swap rule-based classifier for a trained one (sklearn on logged data)
-- [ ] Real embedding-based semantic cache (currently string-similarity)
-- [ ] Deploy: frontend on Vercel, backend on Render, DB on Supabase
+- [x] Prompt compression, rule-based routing, request logging, dashboard
+- [x] Gemini, Groq, OpenAI and Anthropic adapters with automatic failover
+- [x] Vector semantic cache (hashing vectors + cosine similarity; strict threshold, near-duplicate queries only)
+- [x] Feedback buttons and a training script for a learned router
+- [ ] True embedding-based cache (bag-of-words cannot separate "capital of France" from "capital of Germany")
+- [ ] Deploy: frontend on Vercel, backend on Render, database on Supabase
