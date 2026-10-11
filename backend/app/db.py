@@ -23,6 +23,7 @@ class RequestLog(Base):
     estimated_cost_usd: Mapped[float] = mapped_column(Float)
     cache_hit: Mapped[bool] = mapped_column(Boolean, default=False)
     routing_reason: Mapped[str] = mapped_column(String(200), default="")
+    feedback: Mapped[int | None] = mapped_column(Integer, nullable=True)  # +1 good, -1 bad
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

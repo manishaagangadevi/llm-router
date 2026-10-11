@@ -10,6 +10,7 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
 
+    log_id: int
     answer: str
     model_used: str
     original_tokens: int
@@ -19,6 +20,11 @@ class QueryResponse(BaseModel):
     latency_ms: int
     estimated_cost_usd: float
     routing_reason: str
+
+
+class FeedbackRequest(BaseModel):
+    log_id: int
+    feedback: int  # +1 good response, -1 bad response
 
 
 class LogEntry(BaseModel):

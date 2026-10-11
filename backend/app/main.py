@@ -7,7 +7,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.schemas import QueryRequest, QueryResponse, LogEntry
+from app.schemas import QueryRequest, QueryResponse, LogEntry, FeedbackRequest
 from app.db import init_db, get_session, RequestLog
 from app.core import compressor, cache
 from app.core.router_classifier import predict, fallbacks_for
@@ -57,7 +57,9 @@ async def query(req: QueryRequest, session: AsyncSession = Depends(get_session))
         )
         session.add(log)
         await session.commit()
+        await session.refresh(log)
         return QueryResponse(
+            log_id=log.id,
             answer=cached["answer"],
             model_used=cached["model_used"],
             original_tokens=original_tokens,
@@ -96,8 +98,10 @@ async def query(req: QueryRequest, session: AsyncSession = Depends(get_session))
     )
     session.add(log)
     await session.commit()
+    await session.refresh(log)
 
     return QueryResponse(
+        log_id=log.id,
         answer=answer,
         model_used=model_used,
         original_tokens=original_tokens,
@@ -108,6 +112,16 @@ async def query(req: QueryRequest, session: AsyncSession = Depends(get_session))
         estimated_cost_usd=estimated_cost,
         routing_reason=reason,
     )
+
+
+@app.post("/api/feedback")
+async def submit_feedback(req: FeedbackRequest, session: AsyncSession = Depends(get_session)):
+    log = await session.get(RequestLog, req.log_id)
+    if not log:
+        raise HTTPException(status_code=404, detail="log entry not found")
+    log.feedback = 1 if req.feedback > 0 else -1
+    await session.commit()
+    return {"status": "ok"}
 
 
 @app.get("/api/logs", response_model=list[LogEntry])
