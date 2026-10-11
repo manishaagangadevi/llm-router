@@ -8,15 +8,24 @@ classifier later without touching the API layer.
 """
 import re
 
+from app.config import settings
+
 CODE_HINTS = re.compile(r"\b(code|function|bug|error|python|javascript|api|debug|script|algorithm|sql)\b", re.I)
 CREATIVE_HINTS = re.compile(r"\b(story|poem|write a|creative|imagine|brainstorm|slogan|essay)\b", re.I)
 REASONING_HINTS = re.compile(r"\b(why|explain|analyze|compare|reason|prove|logic|trade-?off)\b", re.I)
 
+# Model names come from settings (.env). cost_per_1k is a *notional* list-price
+# estimate used for the dashboard's savings math -- the free tiers bill $0.
 MODELS = {
-    "fast_cheap": {"name": "claude-haiku-4-5", "cost_per_1k": 0.001, "avg_latency_ms": 400},
-    "balanced": {"name": "claude-sonnet-5", "cost_per_1k": 0.003, "avg_latency_ms": 900},
-    "premium": {"name": "claude-opus-5", "cost_per_1k": 0.015, "avg_latency_ms": 1600},
+    "fast_cheap": {"name": settings.fast_model, "cost_per_1k": 0.0001, "avg_latency_ms": 350},
+    "balanced": {"name": settings.balanced_model, "cost_per_1k": 0.0005, "avg_latency_ms": 800},
+    "premium": {"name": settings.premium_model, "cost_per_1k": 0.002, "avg_latency_ms": 1200},
 }
+
+
+def fallbacks_for(model_key: str) -> list[str]:
+    """Other tiers' models, tried in order if the chosen model's provider fails."""
+    return [info["name"] for key, info in MODELS.items() if key != model_key]
 
 
 def predict(query: str, priority: str = "balanced") -> tuple[str, str, dict]:

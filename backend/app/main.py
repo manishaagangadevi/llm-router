@@ -1,7 +1,7 @@
 from datetime import datetime
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,8 +10,8 @@ from app.config import settings
 from app.schemas import QueryRequest, QueryResponse, LogEntry
 from app.db import init_db, get_session, RequestLog
 from app.core import compressor, cache
-from app.core.router_classifier import predict
-from app.adapters.base import call_model
+from app.core.router_classifier import predict, fallbacks_for
+from app.adapters.base import call_with_failover
 
 
 @asynccontextmanager
@@ -70,14 +70,22 @@ async def query(req: QueryRequest, session: AsyncSession = Depends(get_session))
         )
 
     model_key, reason, model_info = predict(compressed_text, req.priority)
-    answer, latency_ms = await call_model(model_info["name"], compressed_text)
+    try:
+        answer, latency_ms, model_used, failed_over = await call_with_failover(
+            model_info["name"], fallbacks_for(model_key), compressed_text
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    if failed_over:
+        reason = f"{reason} (failover from {model_info['name']})"
     estimated_cost = round((compressed_tokens / 1000) * model_info["cost_per_1k"], 6)
 
-    cache.set(compressed_text, answer, model_info["name"])
+    if not answer.startswith("[demo mode"):
+        cache.set(compressed_text, answer, model_used)
 
     log = RequestLog(
         query_preview=req.query[:200],
-        model_used=model_info["name"],
+        model_used=model_used,
         original_tokens=original_tokens,
         compressed_tokens=compressed_tokens,
         tokens_saved_pct=tokens_saved_pct,
@@ -91,7 +99,7 @@ async def query(req: QueryRequest, session: AsyncSession = Depends(get_session))
 
     return QueryResponse(
         answer=answer,
-        model_used=model_info["name"],
+        model_used=model_used,
         original_tokens=original_tokens,
         compressed_tokens=compressed_tokens,
         tokens_saved_pct=tokens_saved_pct,
