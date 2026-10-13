@@ -32,11 +32,46 @@ several LLM providers, and decides per-request which one to call.
 ## Structure
 
 ```
-backend/    FastAPI service - compression, caching, routing, logging, API
-frontend/   Next.js app - chat interface + analytics dashboard
+backend/              FastAPI service - compression, caching, routing, logging, API (+ Dockerfile)
+frontend/             Next.js app - chat interface + analytics dashboard (+ Dockerfile)
+docker-compose.yml    runs db (PostgreSQL, persistent volume) + backend + frontend
+.env.example          settings for Docker Compose (copy to .env)
 ```
 
-## Running locally
+## Run with Docker (lab systems)
+
+Needs Docker with Compose v2 (`docker compose version` should print a version) and internet access for the first build.
+
+```bash
+git clone https://github.com/manishaagangadevi/llm-router.git
+cd llm-router
+cp .env.example .env        # Windows: copy .env.example .env
+docker compose up --build
+```
+
+Then open:
+
+| What | URL |
+|------|-----|
+| App (chat) | http://localhost:3000 |
+| Dashboard | http://localhost:3000/dashboard |
+| API docs | http://localhost:8000/docs |
+
+This starts three containers: `db` (PostgreSQL 16), `backend` (FastAPI) and `frontend` (Next.js). The backend waits for the database to be healthy before starting.
+
+**Persistent storage.** Request logs live in the Docker volume `llm-router_pgdata`, so they survive `docker compose stop`, `docker compose down`, restarts and rebuilds. Only `docker compose down -v` deletes the data.
+
+**API keys are optional.** Without keys the app runs in demo mode and returns placeholder answers, so every feature (compression, routing, logging, dashboard, feedback) can still be demonstrated. For real answers put `GEMINI_API_KEY` and/or `GROQ_API_KEY` in `.env` (never commit `.env`), then run `docker compose up -d --build backend`. The lab network must allow `generativelanguage.googleapis.com` and `api.groq.com`.
+
+**Good to know**
+- Do not change `POSTGRES_PASSWORD` after the first start: the volume keeps the old password. To reset, run `docker compose down -v` (this erases the data).
+- Ports 3000 and 8000 must be free on the machine.
+- To open the app from a different PC than the one running Docker, set `NEXT_PUBLIC_API_URL` and `CORS_ORIGINS` in `.env` to that machine's address, then rebuild with `docker compose up --build`.
+- The semantic cache is held in memory and starts empty after every backend restart.
+- `train_classifier.py` saves the trained router inside the backend container. `docker compose restart backend` keeps it, but `docker compose down` or a rebuild removes it, so re-run the training afterwards.
+- Run the training in Docker with `docker compose exec backend python train_classifier.py`, then `docker compose restart backend`.
+
+## Running without Docker (development)
 
 **Backend**
 ```bash
@@ -82,4 +117,5 @@ in `backend/` and restart the server. Until then routing is rule-based.
 - [x] Vector semantic cache (hashing vectors + cosine similarity; strict threshold, near-duplicate queries only)
 - [x] Feedback buttons and a training script for a learned router
 - [ ] True embedding-based cache (bag-of-words cannot separate "capital of France" from "capital of Germany")
-- [ ] Deploy: frontend on Vercel, backend on Render, database on Supabase
+- [x] Docker Compose setup: frontend, backend and PostgreSQL with a persistent volume
+- [ ] Public hosting (optional)
