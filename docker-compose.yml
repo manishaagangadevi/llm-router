@@ -1,0 +1,64 @@
+# Runs the whole project: Postgres (persistent), FastAPI backend, Next.js frontend.
+#
+#   cp .env.example .env     # optional: add API keys, otherwise demo mode
+#   docker compose up --build
+#
+# Frontend: http://localhost:3000     Backend API docs: http://localhost:8000/docs
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: router
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-router}
+      POSTGRES_DB: router
+    volumes:
+      # named volume: request logs survive restarts, `docker compose down`, and rebuilds
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U router -d router"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://router:${POSTGRES_PASSWORD:-router}@db:5432/router
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      FAST_MODEL: ${FAST_MODEL:-llama-3.1-8b-instant}
+      BALANCED_MODEL: ${BALANCED_MODEL:-gemini-2.5-flash}
+      PREMIUM_MODEL: ${PREMIUM_MODEL:-llama-3.3-70b-versatile}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # must be reachable from the *browser*; change if the app is opened from another PC
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  pgdata:
