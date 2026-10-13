@@ -10,7 +10,7 @@ from app.config import settings
 from app.schemas import QueryRequest, QueryResponse, LogEntry, FeedbackRequest
 from app.db import init_db, get_session, RequestLog
 from app.core import compressor, cache
-from app.core.router_classifier import predict, fallbacks_for
+from app.core.router_classifier import predict, fallbacks_for, MODELS
 from app.adapters.base import call_with_failover
 
 
@@ -159,13 +159,16 @@ async def get_stats(session: AsyncSession = Depends(get_session)):
     )
     model_distribution = {row[0]: row[1] for row in model_counts_result.all()}
 
-    baseline_cost = total * 0.015  # if every request had hit the premium model
-    cost_saved = max(round(baseline_cost - total_cost, 4), 0.0)
+    # Baseline = what the same prompts would have cost sent uncompressed to the
+    # premium tier every time (token-based, same notional rates as the router).
+    raw_tokens = await session.scalar(select(func.sum(RequestLog.original_tokens))) or 0
+    baseline_cost = (raw_tokens / 1000) * MODELS["premium"]["cost_per_1k"]
+    cost_saved = max(round(baseline_cost - total_cost, 6), 0.0)
 
     return {
         "total_requests": total,
         "cache_hit_rate_pct": round(100 * cache_hits / max(total, 1), 1),
-        "total_cost_usd": round(total_cost, 4),
+        "total_cost_usd": round(total_cost, 6),
         "estimated_cost_saved_usd": cost_saved,
         "avg_tokens_saved_pct": round(avg_tokens_saved, 1),
         "model_distribution": model_distribution,

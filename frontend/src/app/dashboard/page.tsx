@@ -45,7 +45,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <HeroStat
             label="cost saved"
-            value={stats ? `$${stats.estimated_cost_saved_usd.toFixed(4)}` : "—"}
+            value={stats ? `$${stats.estimated_cost_saved_usd.toFixed(6)}` : "—"}
             hero
           />
           <Stat label="total requests" value={stats ? String(stats.total_requests) : "—"} />
