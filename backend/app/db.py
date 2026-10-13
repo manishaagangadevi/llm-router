@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from sqlalchemy import String, Integer, Float, Boolean, DateTime
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -27,13 +28,25 @@ class RequestLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
-engine = create_async_engine(settings.database_url, echo=False)
+engine = create_async_engine(settings.database_url, echo=False, pool_pre_ping=True)
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 
 
-async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+async def init_db(retries: int = 30, delay_s: float = 2.0):
+    """
+    Create tables. Retries because in Docker the backend can start a few
+    seconds before Postgres accepts connections.
+    """
+    for attempt in range(1, retries + 1):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            return
+        except Exception as exc:  # noqa: BLE001
+            if attempt == retries:
+                raise
+            print(f"[db] not ready (attempt {attempt}/{retries}): {type(exc).__name__}; retrying in {delay_s}s")
+            await asyncio.sleep(delay_s)
 
 
 async def get_session() -> AsyncSession:
