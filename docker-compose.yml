@@ -32,9 +32,9 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      FAST_MODEL: ${FAST_MODEL:-llama-3.1-8b-instant}
+      FAST_MODEL: ${FAST_MODEL:-openai/gpt-oss-20b}
       BALANCED_MODEL: ${BALANCED_MODEL:-gemini-2.5-flash}
-      PREMIUM_MODEL: ${PREMIUM_MODEL:-llama-3.3-70b-versatile}
+      PREMIUM_MODEL: ${PREMIUM_MODEL:-openai/gpt-oss-120b}
     ports:
       - "8000:8000"
     depends_on:

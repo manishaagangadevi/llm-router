@@ -12,9 +12,9 @@ class Settings(BaseSettings):
 
     # Which model serves each routing tier. Model names change often, so
     # they live in .env instead of code. Defaults use free-tier providers.
-    fast_model: str = "llama-3.1-8b-instant"       # Groq
+    fast_model: str = "openai/gpt-oss-20b"       # Groq
     balanced_model: str = "gemini-2.5-flash"       # Gemini
-    premium_model: str = "llama-3.3-70b-versatile"  # Groq
+    premium_model: str = "openai/gpt-oss-120b"  # Groq
 
     database_url: str = "sqlite+aiosqlite:///./router.db"
     cors_origins: str = "http://localhost:3000"

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from contextlib import asynccontextmanager
 
@@ -77,6 +78,7 @@ async def query(req: QueryRequest, session: AsyncSession = Depends(get_session))
             model_info["name"], fallbacks_for(model_key), compressed_text
         )
     except RuntimeError as exc:
+        logging.getLogger("router").error("model call failed: %s", exc)
         raise HTTPException(status_code=502, detail=str(exc))
     if failed_over:
         reason = f"{reason} (failover from {model_info['name']})"

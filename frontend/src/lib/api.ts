@@ -40,7 +40,11 @@ export async function sendQuery(query: string, priority: string): Promise<QueryR
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, priority }),
   });
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  if (!res.ok) {
+    let detail = `Request failed (${res.status})`;
+    try { detail = (await res.json()).detail ?? detail; } catch {}
+    throw new Error(detail);
+  }
   return res.json();
 }
 

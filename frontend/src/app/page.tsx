@@ -38,8 +38,9 @@ export default function ChatPage() {
     try {
       const res = await sendQuery(query, priority);
       setMessages((prev) => [...prev, { role: "assistant", text: res.answer, meta: res }]);
-    } catch {
-      setError("Couldn't reach the router backend. Is it running on localhost:8000?");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      setError(msg && !msg.includes("fetch") ? `The models couldn't answer: ${msg}` : "Couldn't reach the router backend. Is it running on localhost:8000?");
     } finally {
       setLoading(false);
     }
